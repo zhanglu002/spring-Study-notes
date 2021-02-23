@@ -95,6 +95,7 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 		this.readerContext = readerContext;
 		logger.debug("Loading bean definitions");
 		Element root = doc.getDocumentElement();
+		//重点！！！
 		doRegisterBeanDefinitions(root);
 	}
 
@@ -126,10 +127,19 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 		// the new (child) delegate with a reference to the parent for fallback purposes,
 		// then ultimately reset this.delegate back to its original (parent) reference.
 		// this behavior emulates a stack of delegates without actually necessitating one.
+		/**
+		 * 任何嵌套的<beans>元素都将导致此方法中的递归。
+		 * 为了正确传播和保留<beans> default- *属性，
+		 * 跟踪当前（父）委托，该委托可以为null。
+		 * 创建新的（子）委托，并带有对父级的引用，以进行后备用途，
+		 * 然后最终将this.delegate重置回其原始（父）引用。
+		 * 此行为模拟了一组委托，而实际上并不需要。
+		 **/
 		BeanDefinitionParserDelegate parent = this.delegate;
 		this.delegate = createDelegate(getReaderContext(), root, parent);
 
 		if (this.delegate.isDefaultNamespace(root)) {
+			//profile属性
 			String profileSpec = root.getAttribute(PROFILE_ATTRIBUTE);
 			if (StringUtils.hasText(profileSpec)) {
 				String[] specifiedProfiles = StringUtils.tokenizeToStringArray(
@@ -143,9 +153,11 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 				}
 			}
 		}
-
+		//解析前处理 留给子类去做(模板设计模式)
 		preProcessXml(root);
+		// 解析
 		parseBeanDefinitions(root, this.delegate);
+		// 解析后处理 留给子类实现(模板设计模式)
 		postProcessXml(root);
 
 		this.delegate = parent;
@@ -171,10 +183,17 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 				Node node = nl.item(i);
 				if (node instanceof Element) {
 					Element ele = (Element) node;
+					//确定给定节点是否指示默认名称空间。
 					if (delegate.isDefaultNamespace(ele)) {
+						//对bean的处理
+						//解析默认元素
+						// <bean id=” test” class=” test.TestBean ” />
 						parseDefaultElement(ele, delegate);
 					}
 					else {
+						//对bean的处理
+						//解析自定义元素
+						// <tx :annotation-driven/>
 						delegate.parseCustomElement(ele);
 					}
 				}
